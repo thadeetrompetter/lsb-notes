@@ -91,6 +91,52 @@ If running a command will take a long time, you can send it to the background.
 
     ./long-time-taking-command &
 
-This will return an index and a process id. A notification will appear as soon
-as a command completes. Adding the ampersand simply tells the shell not to wait
-for a particular command to complete.  
+This will return a job number and a process id. A notification will appear as
+soon as a command completes. Adding the ampersand simply tells the shell not to
+wait for a particular command to complete.  
+
+### Running commands in series
+
+To run commands in series, separate the commands with a semicolon.
+
+    pwd ; ls
+
+If you run a command 'in the background' but decide that you do actually want
+to wait for it to complete, you can use `wait [process-id]`. The terminal will
+not respond until that process finishes.
+
+In case you're running more than one process in the background and you want to
+really wait for all of them to complete. just enter `wait` to wait for all
+processes.
+
+### Making scripts executable
+
+To make a script executable, change permissions on so that it may execute.
+
+    chmod 755 test.sh # or
+    chmod a+x test.sh
+
+You'll still want to execute a script with `bash` explicitly sometimes.
+
+```
+bash -n test.sh # dry run: does syntax checking
+bash -v test.sh # prints both the commands and their results as they appear in the script
+bash -x test.sh # same as above, but does not print comments
+```
+
+You can tell the executing environment about what application you want to use
+to run your script on the first line with:
+
+    #!/bin/bash
+
+This is not needed in modern posix systems.
+
+## Making decisions
+
+`bash` allows you to use conditions in your scripts.
+
+### Control operators
+
+You can check if a command succeeded before proceeding to the next by using
+control operators `&&` and `||`, which work the way you'd expect them to in
+c-like languages. Imagine you need a script that ...
