@@ -101,6 +101,8 @@ To run commands in series, separate the commands with a semicolon.
 
     pwd ; ls
 
+Separating with a semicolon is like having the commands on separate lines.
+
 If you run a command 'in the background' but decide that you do actually want
 to wait for it to complete, you can use `wait [process-id]`. The terminal will
 not respond until that process finishes.
@@ -139,4 +141,227 @@ This is not needed in modern posix systems.
 
 You can check if a command succeeded before proceeding to the next by using
 control operators `&&` and `||`, which work the way you'd expect them to in
-c-like languages. Imagine you need a script that ...
+c-like languages.
+
+    cd /temp && rm * # only invokes rm if cd succeeds
+    cd /temp || echo does not exist # print message on failure
+
+This type of logic does not stop the program by itself, though you can use
+`exit` for that.
+
+    cd /might-not-exist || exit 1
+
+You can group logic inside `{ }`. It's important to have a trailing semicolon
+followed by a space after the last command and before the closing `}`
+
+    cd /tmp 2>/dev/null || { echo cd failed ; exit 1 ; }
+    echo here comes the rest of the script
+
+Another way to group commands is by enclosing them in parenthesis `( )`. This
+will run the enclosed commands in a **subshell**. This means that the contained
+logic will only influence the behavior of that subshell and the parent shell will
+just continue on its way.
+
+### if statements
+
+A better way to do logic in bash, is by using if statements. They look like this:
+
+```
+if cd /tmp 2>/dev/null
+then
+    echo successfully entered directory
+else
+    echo failed to enter directory
+    exit 1
+fi
+echo here comes the rest of the script
+```
+
+It's possible to compact logic on to one line.
+
+```
+if cd /tmp 2>/dev/null ; then echo okidoki ; else exit 1 ; fi
+```
+
+You can use any combination of commands as condition. The result of the sequence
+of commands will determine if the condition is truthy or falsy.
+
+### Returning a value with `exit`
+
+In `bash`, exiting with a non zero value means a script has failed.
+
+```
+exit 0 # success
+exit 1 # failure
+```
+
+### Variables
+Variable names are case sensitive and should start with an alphabetic character.
+
+```
+myVariable="random string of text" # you need the quotes if there are spaces
+```
+
+To echo out the value of a variable, you need to prepend `$` to the variable
+name.
+
+```
+echo myVariable # will print "myVariable"
+echo $myVariable # will print "random string of text"
+```
+
+With curly braces, you can concatenate variables and other values. enclose a
+variable name in curly braces to substitute it with its value.
+
+```
+henk=foo
+echo ${henk}bar # prints "foobar"
+```
+
+If you don't assign any value to a variable and use it in a command, it's the
+same as running the command without any argument.
+
+```
+ls $NOVALUE # lists all file in directory
+```
+Because of substitution, you can capture a command in a variable as well.
+
+```
+COMMAND=pwd
+$COMMAND # prints working directory
+```
+
+Variables are not carried over to sub-shell sessions by default. you need to
+`export` a variable to make it usable outside your current shell session.
+
+```
+foo=bar
+export foo # if you open another session now, you can use foo
+```
+
+If you would redefine `foo` inside the sub-shell session, it would shadow `foo`
+in the parent shell. Once you would exit the sub-shell, `foo` will have the value
+you set in the parent shell.
+
+You can combine assigning a value and exporting and once you've exported a
+variable, you don't need to do it again.
+
+```
+export foo=bar
+```
+
+Another way to export a variable is to use `declare`:
+
+```
+declare -x foo=bar
+```
+
+You can also assign a value to a variable for just the duration of the running
+script. an executed script will not have access to variables that have been
+declared but not exported.
+
+```
+# executable script.sh
+echo $foo
+
+# run it
+foo=bar ./script.sh # prints "bar"
+```
+
+### Special variables
+
+`bash` has variables predefined.
+
+`$?` is set with the result of the last executed command, so you can verify if
+it succeeded or not. It will receive the exit code of the last invoked command.
+Note that its value changes **each time** you run a command.
+
+`PS1` is the prompt string. Usually `$ ` by default.
+
+`PATH` contains a list of locations where `bash` will look for commands you want
+to execute. it's a collection of directory paths separated by colons. The
+directories are read left to right.
+
+Not all things you execute in `bash` are programs. There are also **builtins**
+like `cd` and `pwd`. To find out what type of executable you're dealing with:
+
+```
+type cd # prints "cd is a shell builtin"
+type ls # prints "ls is hashed (/bin/ls)"
+```
+
+Say you'd want to add a `bin` folder in your home directory that will hold your
+own commands.
+
+```
+export PATH="$PATH:~/bin"
+```
+
+To execute a command that is not in your `PATH`, tell bash to look for it in the
+current directory:
+
+```
+./mycommand
+```
+
+You could add `.` to your path so that `bash` would always be able to execute any
+command, but for reasons of security, it's best not to do so.
+
+### Formatting output with `printf`
+
+Remember to insert a newline character `\n`. If you want to use a percent sign,
+escape it by prepending another percent sign `%%`.
+
+```
+foo=bar
+printf "prepare the suite at once, i'll be at the %s\n" $foo
+
+foo=42
+printf "the meaning of life = %d\n" $foo
+
+#TODO: doesn't work?
+foo=000
+printf "%#x is the new white\n" $foo
+
+# specify padding
+foo=3
+printf "1, 2, and %8d\n" $foo
+
+# and padding character
+printf "1, 2, and %08d\n" $foo
+```
+
+### Positional parameters
+
+Words on the command line to the right of the command name. You can not reassign
+a positional parameter inside a script.
+
+`$0` is the command name, the parameters start at `$1` and are numbered in order
+of appearance.
+
+```
+# inside executable params.sh
+echo hello $1
+./params.sh "good sir"
+
+# if you want to see what the script does line by line:
+bash -x params.sh "good sir"
+```
+
+### All parameters
+
+You can access all parameters to a script with `$*` or `$@`. There is a
+difference in behavior.
+
+#### `$*`
+if you pass this to a script in quotes (`"$*"`) it will be treated as a single
+argument.
+
+If not quoted and the value contains spaces, spaces will act the way they would
+in regular command invocation, as separators between commands.
+
+#### `$@`
+Parses the arguments, allowing spaces in arguments.
+
+#### `$#`
+Returns the number of arguments passed to the script
