@@ -365,3 +365,48 @@ Parses the arguments, allowing spaces in arguments.
 
 #### `$#`
 Returns the number of arguments passed to the script
+
+### Changing values with simple substitutions
+
+When you use the offset curly braces with a variable, you can manipulate its
+value.
+
+* `?` matches one character
+* `*` matches 0 or more characters
+
+#### Remove from the trailing end with `%`
+
+```
+foo=abba
+echo ${foo%a} # removes last 'a'
+echo ${foo%?} # removes last 'a'
+echo ${foo%b*} # removes 'ba'
+echo ${foo%%b*} # removes 'bba'. double percent means largest possible match
+
+pic=foo.jpg
+echo ${foo%jpg}png # convert a file extension
+```
+
+#### Remove from the leading end with `#`
+
+```
+foo=abba
+echo ${foo#a} # removes first 'a'
+
+email=bob@snork.com
+echo ${email#*@} # prints "snork.com"
+```
+
+If you are going to save the output of the substitution to a variable, you should
+wrap it in quotes to account for any spaces that might be in there.
+
+#### Remove from the middle of the string with `/`
+
+The syntax looks like the on that `sed` uses.
+
+```
+foo=abba
+echo ${foo/bb/tacam} # atacama
+```
+
+## Flow of control
