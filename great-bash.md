@@ -405,8 +405,162 @@ wrap it in quotes to account for any spaces that might be in there.
 The syntax looks like the on that `sed` uses.
 
 ```
+foo=foobarbaz
+echo ${foo/bar} # prints "foobaz"
+
 foo=abba
 echo ${foo/bb/tacam} # atacama
 ```
 
 ## Flow of control
+
+### `for` loop
+
+A loop like this in a script will take any parameters you pass to it as
+arguments.
+
+```
+# in executable file called loop
+
+for VAR
+do
+    echo $VAR
+done
+
+# run it
+
+./loop one two three
+prints  "one"
+        "two"
+        "three"
+```
+
+### Looping over a list
+
+with `for ... in`
+
+```
+for item in one two three four five
+do
+    echo "$item"
+done
+```
+
+### Counting while looping
+
+A regular c-like `for` loop
+```
+for ((i=0 ; i < 9 ; i++ ))
+do
+    echo $i
+done
+```
+
+### Manipulating strings using substrings
+
+You can extract a portion of a string like this:
+
+```
+foo=foobar
+echo ${foo:0:3} # prints "foo" # :[offset]:[string length]
+```
+
+Combined with an indexed `for` loop, you can loop through a string character by
+character.
+
+```
+# in executable script..
+VAR=$1
+for ((i=0 ; i<${#VAR} ; i++))
+do
+    echo ${VAR:$i:1}
+done
+# run it
+./script foobar # will print argument character by character
+```
+
+### using `read`
+
+Read is useful for parsing whitespace separated values. You can populate a
+variable from `stdin` and use redirection.
+
+```
+read foo
+foobar # user types in the value of $foo
+echo $foo # prints "foobar"
+
+read -p "Enter your name " foo
+```
+
+if you use multiple variables with `read`, the input is separated by the spaces
+it contains.
+
+```
+read foo bar
+# user inputs:
+make my day
+echo $foo # prints "make"
+echo $bar # prints "my day"
+```
+
+### `while` loops
+
+The while loop below runs as long as the value inside `(( ))` is non-zero.
+
+```
+let i=0
+while (( i < $1 ))
+do
+    echo $i
+    let i++
+done
+```
+
+A while loop can also run as long as the command inside `(( ))` executes
+successfully.
+
+```
+# in executable
+while read foo
+do
+    echo $foo
+done
+
+# run it
+ls | ./while # list files in directory one by one
+```
+
+### `case` statements
+
+Same as `switch` in c-like languages.
+
+```
+read -p "gimme some: " condition
+
+case "$condition" in
+    foo)    echo "FOO"
+            # more statements
+            ;;
+    bar)    echo "BAR"
+            # more statements
+            ;;
+    baz)    echo "BAZ"
+            # more statements
+            ;;
+esac
+```
+
+You can use shell pattern matching to compare input to your cases.
+
+To create a `default` block, for instance, you can write up the case like
+
+```
+case "$condition" in
+    *)  echo "this is the default"
+        ;;
+```
+
+* You're allowed to leave off the leading parenthesis from a case block.
+* `;;` ends a case.
+* `;;&` means fall through to the next case but continue matching.
+* `;&` means just fall through without additional pattern matching.
