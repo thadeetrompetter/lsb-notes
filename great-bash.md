@@ -564,3 +564,105 @@ case "$condition" in
 * `;;` ends a case.
 * `;;&` means fall through to the next case but continue matching.
 * `;&` means just fall through without additional pattern matching.
+
+## Shell math and logic
+
+`bash` is, by default, a string based language. Variables hold string values, so
+numbers will not have their intended meaning.
+
+```
+foo=5
+bar=10
+baz=$foo+$bar
+echo $baz # prints "5+10"
+```
+
+To allow a variable to hold an integer, use `declare -i`
+
+```
+declare -i counter=0
+count+=1 # no $ prepended. Spaces between operator and operands not allowed
+echo $count # prints 1
+```
+
+A way to let `bash` know you're about to do some math, is to use `let`
+followed by the variable name you want to operate on.
+
+```
+foo=7
+bar=8
+let foo+=bar
+echo $foo # prints 15
+
+# with the expression in quotes, you can use spaces.
+let "foo += bar"
+echo $foo # prints 23
+```
+
+Yet another way is to use double parenthesis `(( ))` Everything inside the
+parenthesis will undergo arithmetic evaluation. No quotes needed!
+
+```
+foo=1
+bar=2
+(( foo += bar ))
+echo $foo # prints 3
+```
+
+An third way is to use `$(( ))`. This can be used wherever you'd be able to use
+a shell variable reference.
+
+```
+echo $(( 3 + 4 )) # prints 7
+```
+
+These examples demonstrate **integer** arithmetic. It won't work with fractional
+values.
+
+### Making mathematical decisions
+
+You can use `(( ))` to wrap if statements.
+
+```
+foo=10
+
+if (( foo > 5 ))
+then
+    echo more than 5
+fi
+```
+
+### Simple polish calculator deluxe version
+
+```
+if(( $# < 3 || $# % 2 == 0))
+then
+    echo boo
+    exit 1
+fi
+
+answer=$(( $1 $3 $2 ))
+shift 3 # discards the first 3 items in the array and moves the rest to the left
+
+while (( $# > 0 ))
+do
+    answer=$(( answer $2 $1 ))
+    shift 2
+done
+
+echo $answer
+```
+
+### `if` revisited
+
+Besides arithmetic and command results, you can make conditions with `[ ]` or
+`[[ ]]`.
+
+The `&&` and `||` logic is replaced with `-a` and `-o`
+
+```
+if [ -e $myFile ]
+then
+    echo the file exists!
+fi
+```
