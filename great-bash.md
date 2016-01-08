@@ -419,6 +419,8 @@ echo ${foo/bb/tacam} # atacama
 A loop like this in a script will take any parameters you pass to it as
 arguments.
 
+You can use `continue` to skip to the next iteration.
+
 ```
 # in executable file called loop
 
@@ -660,9 +662,331 @@ Besides arithmetic and command results, you can make conditions with `[ ]` or
 
 The `&&` and `||` logic is replaced with `-a` and `-o`
 
+#### Does a file exist?
+Will search relative to the current working directory, unless you specify a full
+path.
+
 ```
 if [ -e $myFile ]
 then
     echo the file exists!
 fi
+
+if [ ! -e $myFile ]
+then
+    echo the file does not exist!
+fi
+```
+
+#### Is it a directory?
+
+```
+if [ -d $someDir ]
+then
+    echo it is indeed a directory
+fi
+```
+
+#### What kind of permissions does the file have?
+
+```
+if [ -r $readableFile ]
+then
+    echo the file is readable
+fi
+
+if [ -w $writableFile ]
+then
+    echo the file is writable
+fi
+
+if [ -x $executableFile ]
+then
+    echo the file is executable
+fi
+```
+
+#### Note about logic
+
+Comparisons with `<` and `>`in square bracket notation are always string based.
+If you want numeric comparison you can either use `-eq`, `-lt`, `-gt` (covered
+in the `bash` manual), or compare inside double parenthesis.
+
+### `test`
+
+An executable that handles logic. Much like the logic described above.
+
+### `if` with double square brackets
+
+Conditions inside double brackets `[[ ]]` provide all the functionality that
+single square bracket notation provides, but includes additional syntax.
+For example, you can do this in double square bracket notation.
+
+```
+if [[ $1 == *.txt ]]
+then
+    echo this is a txt file
+fi
+```
+
+This will not compare to a literal `*.txt` like single square bracket notation
+will, but instead will shell-pattern-match to see if the file ends in `.txt`.
+
+Regular expressions are available when you use this syntax. This is the only
+place in `bash` where this is possible. `=~` allows you to use a regex pattern
+to do logic. Do not use quotes to delimit the regex pattern.
+
+```
+if [[ $1 =~ ^foo.*\.txt ]]
+then
+    echo match!
+fi
+```
+
+## Functions in `bash`
+
+Define a function like this:
+
+```
+# define:
+
+function foo ()
+{
+    echo inside foo
+}
+
+# invoke:
+
+foo # prints "inside foo"
+```
+
+
+There's some flexibility in the syntax you use to define the function. For
+instance, you could lose the `function` keyword OR the parenthesis to the right
+of the function name `()`.
+
+```
+function foo
+{
+    echo bar
+}
+
+foo ()
+{
+    echo baz
+}
+```
+
+The characters you use to wrap the function body don't have to be curly braces,
+but may also be `( )`, `[ ]`, `(( ))` or `[[ ]]`. These will have different
+implications than the regular `{}` enclosure of the function body.
+
+### `( )`
+Runs the code in the function body in a sub-shell. Means that you will not be
+able to reference some variables you have defined in a parent shell.
+
+### `(( ))`
+Interpret the function body as arithmetic.
+
+Bash has no concept like **hoisting** function definitions, so you'd be best off
+declaring your functions at the top of your script.
+
+### Function parameters
+
+The positional parameters are redefined while you're inside a function. When the
+function returns, the values are restored.
+
+The only positional parameter that is not subject to this rule, is `$0`. This
+parameter will always contain the name of the running script, inside or outside
+the function.
+```
+# executable file myfunc
+function foo()
+{
+    echo $1
+}
+echo $1
+foo "redefine this"
+
+# run it
+./myfunc bar
+```
+
+### Function scope
+
+Regularly declared variables are always global in bash, even inside functions.
+If you want to declare a local variable, you can do
+
+```
+function foo ()
+{
+    local bar=foobar
+}
+foo # if you don't run foo, bar wouldn't be defined at all, locally or globally
+echo $bar # can't touch this
+```
+
+`declare foo` will also declare a variable `foo` which is **local** to its
+containing function.
+
+To explicitly define a **global** function, you can use `declare -g foo` and
+later on, assign a value to it, which will be globally available.
+
+### Parsing lines to get max file size
+
+This script parses the output of `ls -l` line by line and extracts the **size**,
+while keeping a counter on how many lines (files) were read.
+
+1. The `max` function stores the size globally if it is larger than a
+previously set value.
+2. `lsparse` gets fed one line at a time of space-separated strings; the result
+of reading the output of `ls -l` from **stdin** with `read`.
+
+```
+function max ()
+{
+    if (( ${1} > MAX )) # the curly braces are not really needed
+    then
+        MAX=$1
+    fi
+}
+
+function lsparse ()
+{
+    if(( $# < 5 ))
+    then
+        SIZ=-1
+    else
+        SIZ=$5
+    fi
+}
+declare -i CNT MAX=-1
+while read lsline
+do
+    let CNT++
+    lsparse $lsline
+    max $SIZ
+done
+
+printf "largest of %d files was: %d\n" $CNT $MAX
+```
+
+This script illustrates that a space separated string, when fed to a function,
+is translated into positional parameters for you to work with.
+
+### Dynamic variable names
+
+To do indirect substitution, use an exclamation mark `!`.
+
+```
+foo=bar
+bar="party time"
+echo ${!foo}
+```
+
+Here is a script that leverages this technique to get the absolute value of the
+given list of numbers. Note that the current iteration variable `num` is
+**global**, which is why you are able to reference it in the condition.
+
+```
+function abs()
+{
+    local VN=$1
+    if(( ${!VN} < 0 )) # translates to ${num}, which amounts to the value of the current loop iteration
+    then
+        let ${VN}=0-${!VN} # sets num to 0 - loop iteration value, which makes a negative number positive
+    fi
+}
+for num
+do
+    printf "ABS(%d) = " $num
+    abs "num"
+    printf "%d\n" $num
+done
+```
+
+### Make your own library
+
+With `source filename.sh` you can include files. This is useful if you want to
+load some functions into a script you're working on. Be aware that the script
+you're including only contains function definitions, no executable code.
+`. filename.sh` is an older, alternative syntax to achieve this. Some advice:
+
+1. Comment your code
+2. Use local variables to avoid name conflicts
+
+## Arrays
+
+You need to use curly braces for accessing arrays, because square brackets on
+their own mean that you intend to start some shell expansion.
+
+```
+# Initialize a new array variable
+declare -a myArray
+
+# Populate array with values (normal zero-indexed)
+myArray=(one two three four five)
+
+# Assign a value to a specific position
+myArray([6]=bar)
+myArray([sjaak]=bert)
+
+# Set value for index
+foo[3]=123 # set value of index 3
+echo ${arr[3]} # read the value from index 3
+```
+
+### Using arrays in loops
+
+The `read` program has a flag for working with arrays. Here we're going to read
+the output from `ls -l`. The words in the resulting string are going to become
+items in an array. We will print the 6th position, which is the day the file
+was created. A new array is created that counts how many time a particular day
+was found.
+
+```
+# @todo: revisit this
+# example output from ls -l
+# -rwxr-xr-x  1 thadeetrompetter  staff  183 Jan  8 15:02 test
+
+# in executable script
+
+while read -a lsout
+do
+    dom=${lsout[6]}
+    let counter[dom]++
+done
+```
+
+An alternative way to loop over a collection, is to use the following syntax.
+`"${counter[@]}"` gets transformed in to an array of words. Obviously you can
+only get a hold of the current item's value this way.
+
+```
+for nm in "${counter[@]}"
+{
+    printf "%d\n" $nm
+}
+```
+
+Using an exclamation mark, you can retrieve the indices that are **set**:
+`"${!counter[@]}"`. Indices that have not been set, are skipped.
+
+```
+for nmIndex in "${!counter[@]}"
+{
+    printf "%d - %d\n" $nmIndex ${counter[nmIndex]}
+}
+```
+
+### Associative arrays
+
+**Note**: only works with bash version 4 and up.
+
+You declare an associative array with `declare -A myAssociativeArray`
+
+```
+declare -A arr
+arr["foo"]=bar
+echo ${arr["foo"]}
 ```
