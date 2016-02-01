@@ -990,3 +990,102 @@ declare -A arr
 arr["foo"]=bar
 echo ${arr["foo"]}
 ```
+
+## Parsing options
+
+To parse options in a `bash` script, use the `getopts` builtin. Getopts
+expects the flags you want to allow, as well as the variable to store them in.
+The arguments are not stored in any particular order.
+in `opts.sh`
+
+```bash
+while getopts "abc" FLAG
+do
+    case $FLAG in
+    a) AFLAG=set # though you can use any truthy value here
+        ;;
+    b) BFLAG=set
+        ;;
+    c) CFLAG=set
+        ;;
+    *) echo "some default or error message signaling improper use of flags"
+        exit 1
+        ;;
+    esac >&2 # this sends any output from inside the switch to stderr
+done # you could also redirect any and all loop output to stderr.
+```
+
+`getopts` will generate an error if you supply an option that is not allowed.
+You can suppress this behavior by prepending a colon to the string that
+contains the allowed options.
+
+```
+":abc" # will silence getopts' error reporting
+```
+
+### Doing something with a parsed option
+
+You can use a parsed option in a conditional in a wordy way like this:
+
+```
+if [[ $SOME_FLAG ]]; then echo something fi
+```
+
+Or use a shorthand
+
+```
+[[ $SOME_FLAG ]] && echo something
+```
+
+### Discarding flags from the script parameters
+
+`OPTIND` when using `getopts` gives you the number of arguments that were used.
+Because arguments take up the space of positional parameters, you can get rid
+of them like so:
+
+```
+shift $((OPTIND - 1))
+```
+
+Now other data you might have in positional parameters will be available
+
+### Flags with a value
+
+You want this:
+
+```
+somecommand -x somevalue
+
+# in getopts.sh
+# Add a colon after the flag that holds the value
+while getopts "ax:bc" FLAG # ...
+```
+
+In the case that handles the `-x` flag, you can now make use of a special
+variable named `$OPTARG`. It will get overridden by the next flag with a value,
+So take care to store it somewhere safe.
+
+### Using `$OPTSARG`
+
+In the switch statement up there, add a case:
+
+```bash
+x) XVAL="$OPTSARG"
+    ;;
+```
+
+## Pipeline issues / grouping
+
+You might be tempted to instead of piping a command to a script, like:
+
+```
+ls -l | ./somescript
+
+# instead, inside ./somescript
+
+ls -l | while read FOO BAR BAZ ...etc
+```
+
+This will not work because the ls and while loop are both being run in their own sub-shell. As soon as the sub-shell commands finish, their variables with values will not be available to the rest of the script anymore.
+
+You can enclose a group of statement that need to be executed in the same shell session in braces `{}`. All variables in this delimited group share the same environment.
