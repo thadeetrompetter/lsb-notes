@@ -1065,12 +1065,12 @@ In the case that handles the `-x` flag, you can now make use of a special
 variable named `$OPTARG`. It will get overridden by the next flag with a value,
 So take care to store it somewhere safe.
 
-### Using `$OPTSARG`
+### Using `$OPTARG`
 
 In the switch statement up there, add a case:
 
 ```bash
-x) XVAL="$OPTSARG"
+x) XVAL="$OPTARG"
     ;;
 ```
 
